@@ -24,7 +24,7 @@ model = FasterRCNN(backbone,
 model.load_state_dict(torch.load('1.pth'))
 model.eval()
 model.to(device)
-real_img = cv2.imread('/home/dung/DocData/TB/1.png')
+real_img = cv2.imread('/home/dung/DocData/cp/145/110.png')
 img = torch.tensor(real_img, dtype=torch.float32)/255
 img = img.permute((2, 0, 1))
 
