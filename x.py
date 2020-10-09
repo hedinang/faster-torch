@@ -6,11 +6,11 @@ import math
 from torchvision.models.detection.rpn import AnchorGenerator
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection import FasterRCNN
-device = torch.device("cuda:0")
+device = torch.device('cuda')
 
-backbone = torchvision.models.mobilenet_v2(pretrained=False).features
-backbone.out_channels = 1280
-anchor_sizes = ((4, 8, 16, 32, 64, 128, 256, 512),)
+backbone = torchvision.models.vgg16(pretrained=False).features
+backbone.out_channels = 512
+anchor_sizes = ((8, 16, 32, 64, 128, 256, 512),)
 aspect_ratios = ((1/2, 1/3, 1/4, 1/5, 1/6, 1/math.sqrt(2), 1,
                   2, math.sqrt(2), 3, 4, 5, 6, 7, 8),)
 anchor_generator = AnchorGenerator(
@@ -21,7 +21,8 @@ roi_pooler = torchvision.ops.MultiScaleRoIAlign(featmap_names=['0', '1', '2', '3
 model = FasterRCNN(backbone,
                    num_classes=7,
                    rpn_anchor_generator=anchor_generator,
-                   box_roi_pool=None)
+                   box_roi_pool=roi_pooler)
+
 model.to(device)
 
 
@@ -70,7 +71,7 @@ class DocDataset(torch.utils.data.Dataset):
         return self.images[idx], self.targets[idx]
 
 
-root_url = '/home/dung/DocData/TB'
+root_url = '/home/dung/DocData/BN'
 dataset = DocDataset(root_url)
 data_loader = torch.utils.data.DataLoader(
     dataset, batch_size=1, shuffle=True, num_workers=0)

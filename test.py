@@ -1,58 +1,83 @@
+import cv2
 import torch
 import torchvision
-import cv2
 import os
+import math
+from torchvision.models.detection.rpn import AnchorGenerator
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
-device = torch.device("cuda:0")
-# load a model pre-trained pre-trained on COCO
-model = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=False)
-print(model)
-# replace the classifier with a new one, that has
-# num_classes which is user-defined
-num_classes = 7  # 1 class (person) + background
-# get number of input features for the classifier
-in_features = model.roi_heads.box_predictor.cls_score.in_features
-# replace the pre-trained head with a new one
-model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
+from torchvision.models.detection import FasterRCNN
+device = torch.device('cuda:0')
 
-root_url = '/home/dung/DocData/test'
-root_fld = os.listdir(root_url)
-txt_fld = [i for i in root_fld if i.split('.')[1] == 'txt']
-images = []
-targets = []
-epochs = 10
+backbone = torchvision.models.vgg16(pretrained=False).features
+backbone.out_channels = 512
+anchor_sizes = ((8, 16, 32, 64, 128, 256, 512),)
+aspect_ratios = ((1/2, 1/3, 1/4, 1/5, 1/6, 1/math.sqrt(2), 1,
+                  2, math.sqrt(2), 3, 4, 5, 6, 7, 8),)
+anchor_generator = AnchorGenerator(
+    sizes=anchor_sizes, aspect_ratios=aspect_ratios)
+roi_pooler = torchvision.ops.MultiScaleRoIAlign(featmap_names=['0', '1', '2', '3', '4'],
+                                                output_size=7,
+                                                sampling_ratio=2)
+model = FasterRCNN(backbone,
+                   num_classes=2,
+                   box_score_thresh=0.5,
+                   rpn_anchor_generator=anchor_generator,
+                   box_roi_pool=roi_pooler,
+                   box_detections_per_img=20)
 
-for i in txt_fld:
-    img = cv2.imread('{}/{}.png'.format(root_url, i.split('.')[0]))
-    img = torch.tensor(img, dtype=torch.float32)/255
-    img = img.permute((2, 0, 1))
-    images.append(img)
-    f = open('{}/{}'.format(root_url, i))
-    boxes = []
-    labels = []
-    for j in f.readlines():
-        x0, y0, x1, y1, class_name = j.strip().split(' ')
-        boxes.append([int(x0), int(y0), int(x1), int(y1)])
-        if class_name == 'send':
-            labels.append(1)
-        elif class_name == 'date':
-            labels.append(2)
-        elif class_name == 'quote':
-            labels.append(3)
-        elif class_name == 'header':
-            labels.append(4)
-        elif class_name == 'motto':
-            labels.append(5)
-        elif class_name == 'number':
-            labels.append(6)
-    boxes = torch.tensor(boxes, dtype=torch.float32)
-    labels = torch.tensor(labels, dtype=torch.int64)
-    d = {}
-    d['boxes'] = boxes
-    d['labels'] = labels
-    targets.append(d)
-# images = images.to(device)
-# target['']
-for epoch in range(epochs):
-    output = model(images, targets)
-    print(output)
+model.to(device)
+
+
+
+
+
+class DocDataset(torch.utils.data.Dataset):
+    def __init__(self, root_url):
+        # self.transform = transform
+        self.root_url = root_url
+        self.root_fld = root_url.rsplit('/', 1)[0]
+        file = open(self.root_url)
+        self.lines = file.readlines()
+
+    def __len__(self):
+        return len(self.lines)
+
+    def __getitem__(self, idx):
+        self.images = []
+        img_file, x0, y0, x1, y1, class_name = self.lines[idx].strip().split(
+            ',')
+        img = cv2.imread('{}/{}'.format(self.root_fld, img_file))
+        # cv2.rectangle(img, (int(x0), int(y0)),
+        #       (int(x1), int(y1)), (100, 200, 150), 1, 1)
+        # cv2.imshow('aaa', img)
+        # cv2.waitKey(0)
+        img = torch.tensor(img, dtype=torch.float32) / 255
+        img = img.permute(2, 0, 1)
+        # self.images.append(img)
+        boxes = [(int(x0), int(y0), int(x1), int(y1))]
+        labels = [1]
+        targets = {'boxes': torch.tensor(boxes, dtype=torch.int64),
+                   'labels': torch.tensor(labels, dtype=torch.int64)}
+
+        return img, targets
+
+
+root_url = '/home/dung/Project/Python/keras-frcnn/output.txt'
+dataset = DocDataset(root_url)
+data_loader = torch.utils.data.DataLoader(
+    dataset, batch_size=1, shuffle=True, num_workers=0)
+
+for i in range(500):
+    print('Epoch {}\n'.format(i))
+    for j, (images, targets) in enumerate(data_loader):
+        images = images.to(device)
+        a = {}
+        a['boxes'] = targets['boxes'][0].to(device)
+        a['labels'] = targets['labels'][0].to(device)
+        output = model(images, [a])
+        if j % 300 == 0:
+            print('Step {} -- loss_classifier = {} -- loss_box_reg = {} -- loss_objectness = {} -- loss_rpn_box_reg = {}\n'.format(j,
+                                                                                                                                   output['loss_classifier'].item(), output['loss_box_reg'].item(), output['loss_objectness'].item(), output['loss_rpn_box_reg'].item()))
+    if i % 10 == 0:
+        torch.save(model.state_dict(), '1.pth')
+print('done')
