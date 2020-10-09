@@ -83,8 +83,6 @@ for i in range(200):
         a = {}
         a['boxes'] = targets['boxes'][0].to(device)
         a['labels'] = targets['labels'][0].to(device)
-        # images = list(image for image in images)
-        # targets = [{k: v for k, v in t.items()} for t in targets]
         output = model(images, [a])
         if j % 30 == 0:
             print('Step {} -- loss_classifier = {} -- loss_box_reg = {} -- loss_objectness = {} -- loss_rpn_box_reg = {}\n'.format(j,

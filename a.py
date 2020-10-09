@@ -2,6 +2,7 @@ import cv2
 import torch
 import torchvision
 import os
+import numpy as np
 from torchvision.models.detection.rpn import AnchorGenerator
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection import FasterRCNN
