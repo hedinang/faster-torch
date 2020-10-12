@@ -28,9 +28,6 @@ model = FasterRCNN(backbone,
 model.to(device)
 
 
-
-
-
 class DocDataset(torch.utils.data.Dataset):
     def __init__(self, root_url):
         # self.transform = transform
@@ -44,8 +41,9 @@ class DocDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         self.images = []
-        img_file, x0, y0, x1, y1, class_name = self.lines[idx].strip().split(
+        A, y0, x1, y1, class_name = self.lines[idx].strip().split(
             ',')
+        img_file, x0 = A.strip().split(' ')
         img = cv2.imread('{}/{}'.format(self.root_fld, img_file))
         # cv2.rectangle(img, (int(x0), int(y0)),
         #       (int(x1), int(y1)), (100, 200, 150), 1, 1)
@@ -62,11 +60,11 @@ class DocDataset(torch.utils.data.Dataset):
         return img, targets
 
 
-root_url = '/home/dung/Project/Python/keras-frcnn/output.txt'
+root_url = '/home/dung/Project/Test/faster-torch/output.txt'
 dataset = DocDataset(root_url)
 data_loader = torch.utils.data.DataLoader(
     dataset, batch_size=1, shuffle=True, num_workers=0)
-
+optimizer = torch.optim.SGD(model.parameters(), lr=1e-4)
 for i in range(500):
     print('Epoch {}\n'.format(i))
     for j, (images, targets) in enumerate(data_loader):
@@ -75,9 +73,13 @@ for i in range(500):
         a['boxes'] = targets['boxes'][0].to(device)
         a['labels'] = targets['labels'][0].to(device)
         output = model(images, [a])
+        losses = sum(loss for loss in output.values())
         if j % 300 == 0:
             print('Step {} -- loss_classifier = {} -- loss_box_reg = {} -- loss_objectness = {} -- loss_rpn_box_reg = {}\n'.format(j,
                                                                                                                                    output['loss_classifier'].item(), output['loss_box_reg'].item(), output['loss_objectness'].item(), output['loss_rpn_box_reg'].item()))
-    if i % 10 == 0:
+        optimizer.zero_grad()
+        losses.backward()
+        optimizer.step()
+    if i % 50 == 0:
         torch.save(model.state_dict(), '1.pth')
 print('done')

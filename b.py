@@ -26,18 +26,22 @@ model = FasterRCNN(backbone,
 model.load_state_dict(torch.load('1.pth'))
 model.to(device)
 model.eval()
+# real_img = cv2.imread(
+#     '/home/dung/DocData/cp/145/110.png')
 real_img = cv2.imread(
-    '/home/dung/Project/Python/keras-frcnn/result/0_19_0.png')
+    'result/0_19_0.png')
 img = torch.tensor(real_img, dtype=torch.float32)/255
 img = img.permute((2, 0, 1))
 
 output = model([img.to(device)])
 
 boxes = output[0]['boxes']
+
 a = output[0]['boxes'].detach().to('cpu').numpy()
 a = np.round(a)
 print(output)
-for (x0, y0, x1, y1) in a[:3]:
+for (x0, y0, x1, y1) in a[:1]:
     cv2.rectangle(real_img, (x0, y0), (x1, y1), (100, 200, 150), 1, 1)
+    # cv2.putText(real_img,)
 cv2.imshow('aaa', real_img)
 cv2.waitKey(0)

@@ -6,6 +6,7 @@ import math
 from torchvision.models.detection.rpn import AnchorGenerator
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection import FasterRCNN
+
 device = torch.device('cuda')
 
 backbone = torchvision.models.vgg16(pretrained=False).features
@@ -22,8 +23,9 @@ model = FasterRCNN(backbone,
                    num_classes=7,
                    rpn_anchor_generator=anchor_generator,
                    box_roi_pool=roi_pooler)
-
+# model.load_state_dict(torch.load('2.pth'))
 model.to(device)
+# model.eval
 
 
 class DocDataset(torch.utils.data.Dataset):
@@ -71,12 +73,15 @@ class DocDataset(torch.utils.data.Dataset):
         return self.images[idx], self.targets[idx]
 
 
-root_url = '/home/dung/DocData/BN'
+root_url = '/home/dung/DocData/cp/145'
 dataset = DocDataset(root_url)
 data_loader = torch.utils.data.DataLoader(
     dataset, batch_size=1, shuffle=True, num_workers=0)
+# criterion = torch.nn.MSELoss(reduction='sum')
+optimizer = torch.optim.SGD(model.parameters(), lr=1e-4)
 
-for i in range(200):
+
+for i in range(1000):
     print('Epoch {}\n'.format(i))
     for j, (images, targets) in enumerate(data_loader):
         images = images.to(device)
@@ -84,8 +89,15 @@ for i in range(200):
         a['boxes'] = targets['boxes'][0].to(device)
         a['labels'] = targets['labels'][0].to(device)
         output = model(images, [a])
+        losses = sum(loss for loss in output.values())
         if j % 30 == 0:
             print('Step {} -- loss_classifier = {} -- loss_box_reg = {} -- loss_objectness = {} -- loss_rpn_box_reg = {}\n'.format(j,
                                                                                                                                    output['loss_classifier'].item(), output['loss_box_reg'].item(), output['loss_objectness'].item(), output['loss_rpn_box_reg'].item()))
-torch.save(model.state_dict(), '1.pth')
+        optimizer.zero_grad()
+        losses.backward()
+        optimizer.step()
+    if i % 20 == 0:
+        print('save model')
+        torch.save(model.state_dict(), '3.pth')
 print('done')
+
