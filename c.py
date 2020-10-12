@@ -19,8 +19,8 @@ config = Cfg.load_config_from_name('vgg_transformer')
 config['weights'] = 'https://drive.google.com/uc?id=13327Y1tz1ohsm5YZMyXVMPIOjoOA0OaA'
 config['device'] = 'cpu'
 config['predictor']['beamsearch'] = False
-predict = Predictor(config)
-time1 = time.time()
+# predict = Predictor(config)
+# time1 = time.time()
 # try:
 #     set_start_method('spawn')
 # except RuntimeError:
@@ -93,22 +93,22 @@ def detect(model, image):
             diff([c[0] for c in i]), diff([c[1] for c in i])) > min_size]
 
     sub_img_list = []
-    for ele in horizontal_list:
-        ele = [0 if i < 0 else i for i in ele]
-        sub_img = img_resized[ele[2]:ele[3], ele[0]:ele[1], :]
-        img = cv2.cvtColor(sub_img, cv2.COLOR_BGR2RGB)
-        img = Image.fromarray(img)
-        s = predict.predict(img)
-        sub_img_list.append(s)
-        sub_img_list.append(sub_img)
-    print(time.time() - time1)
-    return sub_img_list
+    # for ele in horizontal_list:
+    #     ele = [0 if i < 0 else i for i in ele]
+    #     sub_img = img_resized[ele[2]:ele[3], ele[0]:ele[1], :]
+    #     img = cv2.cvtColor(sub_img, cv2.COLOR_BGR2RGB)
+    #     img = Image.fromarray(img)
+    #     s = predict.predict(img)
+    #     sub_img_list.append(s)
+    #     sub_img_list.append(sub_img)
+    # print(time.time() - time1)
+    # return sub_img_list
 
 
-for i in range(2):
+for i in range(3):
 
     image = cv2.imread('{}.png'.format(i))
-    p = mp.Process(target=detect, args=(model, image))
+    p = mp.Process(target=detect, args=(model, image,))
     p.start()
     p.join()
 print('last {}'.format(time.time() - time1))
