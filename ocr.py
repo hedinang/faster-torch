@@ -3,31 +3,28 @@ from craft import CRAFT
 from vietocr.tool.translate import build_model, translate_beam_search, process_input, predict
 from imgproc import resize_aspect_ratio, normalizeMeanVariance
 from craft_ultils import getDetBoxes, adjustResultCoordinates
-from utils import group_text_box, get_image_list, calculate_md5, get_paragraph,\
-    download_and_unzip, printProgressBar, diff, reformat_input
+from utils import group_text_box
 import cv2
-from torch.autograd import Variable
 from collections import OrderedDict
-from modules import vgg16_bn, init_weights
 import numpy as np
 import torch.multiprocessing as mp
-from torch.multiprocessing import Pool, Process, set_start_method, Value
+from torch.multiprocessing import Pool, Process, set_start_method, Value, Manager
 import time
 from PIL import Image
 from vietocr.tool.config import Cfg
 import threading
-import multiprocessing
+
 
 class Ocr:
     def __init__(self):
         super().__init__()
-        self.send = []
-        self.date = []
-        self.quote = []
-        self.number = []
-        self.header = []
-        self.sign = []
-
+        manager = Manager()
+        self.send = manager.list()
+        self.date = manager.list()
+        self.quote = manager.list()
+        self.number = manager.list()
+        self.header = manager.list()
+        self.sign = manager.list()
         self.device = torch.device('cpu')
         state_dict = torch.load(
             '/home/dung/Project/Python/ocr/craft_mlt_25k.pth')
@@ -49,9 +46,12 @@ class Ocr:
         self.config['weights'] = 'https://drive.google.com/uc?id=13327Y1tz1ohsm5YZMyXVMPIOjoOA0OaA'
         self.config['device'] = 'cpu'
         self.config['predictor']['beamsearch'] = False
+        self.weights = 'transformerocr.pth'
+
         # self.model, self.vocab = build_model(self.config)
 
-    def predict(self, model, seq, vocab, key, idx, img):
+    def predict(self, model, vocab, seq, key, idx, img):
+
         img = process_input(img, self.config['dataset']['image_height'],
                             self.config['dataset']['image_min_width'], self.config['dataset']['image_max_width'])
         img = img.to(self.config['device'])
@@ -74,28 +74,16 @@ class Ocr:
         s = translated_sentence[0].tolist()
         s = vocab.decode(s)
         seq[idx] = s
-        # if key == 'send':
-        #     self.send[idx] = s
-        # elif key == 'date':
-        #     self.date[idx] = s
-        # elif key == 'quote':
-        #     self.quote[idx] = s
-        # elif key == 'number':
-        #     self.number[idx] = s
-        # elif key == 'header':
-        #     self.header[idx] = s
-        # elif key == 'sign':
-        #     self.sign[idx] = s
         # print(time.time() - time1)
 
-    def process(self,  craft, seq, key, sub_img):
+    def process(self, craft, seq, key, sub_img):
         img_resized, target_ratio, size_heatmap = resize_aspect_ratio(sub_img, 2560,
                                                                       interpolation=cv2.INTER_LINEAR, mag_ratio=1.)
         ratio_h = ratio_w = 1 / target_ratio
 
         x = normalizeMeanVariance(img_resized)
         x = torch.from_numpy(x).permute(2, 0, 1)    # [h, w, c] to [c, h, w]
-        x = Variable(x.unsqueeze(0))               # [c, h, w] to [b, c, h, w]
+        x = x.unsqueeze(0)              # [c, h, w] to [b, c, h, w]
         x = x.to(self.device)
         y, feature = craft(x)
         score_text = y[0, :, :, 0].cpu().data.numpy()
@@ -121,40 +109,24 @@ class Ocr:
                 i[1]-i[0], i[3]-i[2]) > 10]
             free_list = [i for i in free_list if max(
                 diff([c[0] for c in i]), diff([c[1] for c in i])) > min_size]
-        # if key == 'send':
-        #     self.send = [None] * len(horizontal_list)
-        # elif key == 'date':
-        #     self.date = [None] * len(horizontal_list)
-        # elif key == 'quote':
-        #     self.quote = [None] * len(horizontal_list)
-        # elif key == 'number':
-        #     self.number = [None] * len(horizontal_list)
-        # elif key == 'header':
-        #     self.header = [None] * len(horizontal_list)
-        # elif key == 'sign':
-        #     self.sign = [None] * len(horizontal_list)
-        seq = [None] * len(horizontal_list)
+        seq[:] = [None] * len(horizontal_list)
         model, vocab = build_model(self.config)
+        model.load_state_dict(torch.load(
+            self.weights, map_location=torch.device('cpu')))
+
         for i, ele in enumerate(horizontal_list):
             ele = [0 if i < 0 else i for i in ele]
-            sub_img = img_resized[ele[2]:ele[3], ele[0]:ele[1], :]
-            img = cv2.cvtColor(sub_img, cv2.COLOR_BGR2RGB)
+            img = sub_img[ele[2]:ele[3], ele[0]:ele[1], :]
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             img = Image.fromarray(img.astype(np.uint8))
             p = threading.Thread(
-                target=self.predict, args=(model, seq, vocab, key, i, img))
+                target=self.predict, args=(model, vocab, seq, key, i, img))
             p.start()
             p.join()
         # print(time.time() - time1)
-        print('aaaa')
 
     def forward(self, img, rs):
         # time1 = time.time()
-        send = multiprocessing.Value('a', 1)
-        self.date = Value('b', lock=False)
-        self.quote = Value('c', lock=False)
-        self.number = Value('d', lock=False)
-        self.header = Value('f', lock=False)
-        self.sign = Value('i', lock=False)
         for key, v in rs.items():
             x0, y0, x1, y1 = v
             if key == 'send':
@@ -177,13 +149,14 @@ class Ocr:
                     self.craft, self.date, key, img[y0:y1, x0:x1, :],))
             p.start()
             p.join()
-            print('12')
-        print('bbb')
+        return self.send[:], self.date[:], self.quote[:], self.number[:], self.header[:], self.sign[:]
 
 
-img = cv2.imread('16.png')
-result = {}
-result['send'] = [115, 77, 272, 170]
-result['date'] = [115, 77, 272, 170]
-a = Ocr()
-a.forward(img, result)
+# img = cv2.imread('6.png')
+# result = {}
+# result['send'] = [210, 196, 691, 279]
+# result['date'] = [252, 288, 650, 331]
+# a = Ocr()
+# time1 = time.time()
+# send, date, quote, number, header, sign = a.forward(img, result)
+# print(time.time() - time1)
