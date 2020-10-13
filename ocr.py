@@ -46,7 +46,7 @@ class Ocr:
         self.config['weights'] = 'https://drive.google.com/uc?id=13327Y1tz1ohsm5YZMyXVMPIOjoOA0OaA'
         self.config['device'] = 'cpu'
         self.config['predictor']['beamsearch'] = False
-        self.weights = 'transformerocr.pth'
+        self.weights = '/home/dung/Documents/transformerocr.pth'
 
         # self.model, self.vocab = build_model(self.config)
 
@@ -150,13 +150,3 @@ class Ocr:
             p.start()
             p.join()
         return self.send[:], self.date[:], self.quote[:], self.number[:], self.header[:], self.sign[:]
-
-
-# img = cv2.imread('6.png')
-# result = {}
-# result['send'] = [210, 196, 691, 279]
-# result['date'] = [252, 288, 650, 331]
-# a = Ocr()
-# time1 = time.time()
-# send, date, quote, number, header, sign = a.forward(img, result)
-# print(time.time() - time1)

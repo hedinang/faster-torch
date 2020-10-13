@@ -27,7 +27,7 @@ class Detect:
                                 rpn_anchor_generator=anchor_generator,
                                 box_roi_pool=roi_pooler)
         self.device = torch.device('cpu')
-        self.model.load_state_dict(torch.load('1.pth'))
+        self.model.load_state_dict(torch.load('2.pth'))
         self.model.to(self.device)
         self.model.eval()
 
@@ -58,10 +58,10 @@ class Detect:
             elif v == 6 and scores[i] > last['motto']:
                 last['motto'] = scores[i]
                 result['motto'] = boxes[i]
-            elif v == 7 and scores[i] > last['secrete']:
-                last['secrete'] = scores[i]
-                result['secrete'] = boxes[i]
-            elif v == 8 and scores[i] > last['sign']:
-                last['sign'] = scores[i]
-                result['sign'] = boxes[i]
+            # elif v == 7 and scores[i] > last['secrete']:
+            #     last['secrete'] = scores[i]
+            #     result['secrete'] = boxes[i]
+            # elif v == 8 and scores[i] > last['sign']:
+            #     last['sign'] = scores[i]
+            #     result['sign'] = boxes[i]
         return result

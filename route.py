@@ -2,26 +2,16 @@ from flask import Flask, render_template, request
 from werkzeug.utils import secure_filename
 import os
 from ocr import Ocr
-import detect
+from detect import Detect
 import time
 import pytesseract
 import cv2
 from pdf2image import convert_from_path
 from datetime import datetime
-from detect_line import DT
-from detection import get_detector, get_textbox
-from vietocr.tool.config import Cfg
-from vietocr.tool.predictor import Predictor
+
 app = Flask(__name__)
-detector = get_detector('craft_mlt_25k.pth', 'cpu')  # model share
-detector.share_memory()
-config = Cfg.load_config_from_name('vgg_transformer')
-config['weights'] = 'ocr.md'
-config['device'] = 'cpu'
-config['predictor']['beamsearch'] = False
-predict = Predictor(config)
-detect = detect.Detect()
-dt = DT(detector, predict)
+ocr = Ocr()
+detect = Detect()
 
 
 @app.route('/hello', methods=['GET'])
@@ -48,13 +38,12 @@ def processUrl():
                 first_page = pages[0]
                 first_page.save(name_img, 'png')
                 im = cv2.imread(name_img)
-                rs = detect(im)
+                rs = detect.forward(im)
                 if rs['secrete'] != None:
                     return {'secrete': True}
-                
-                ocr = Ocr()
-                ocr(im,rs)
-                result.append(ocr.process())
+
+                ocr.forward(im, rs)
+                # result.append(ocr.process())
                 log.write('{}   {}\n'.format(f.filename, 'successful'))
             except Exception as identifier:
                 log.write('{}   {}\n'.format(f.filename, 'failed'))

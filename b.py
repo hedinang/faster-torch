@@ -29,7 +29,7 @@ model.eval()
 # real_img = cv2.imread(
 #     '/home/dung/DocData/cp/145/110.png')
 real_img = cv2.imread(
-    'result/0_19_0.png')
+    '/home/dung/Project/Python/keras-frcnn/result/0_19_0.png')
 img = torch.tensor(real_img, dtype=torch.float32)/255
 img = img.permute((2, 0, 1))
 
